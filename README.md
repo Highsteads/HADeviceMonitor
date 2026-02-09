@@ -31,10 +31,10 @@ The plugin is designed to stay quiet and only speak up when something changes:
 | Scenario | Log Output | Pushover |
 |----------|-----------|----------|
 | Scheduled check, all OK | Nothing | No |
-| New problem found | Full report (once) | One notification |
+| New problem found | Single line per problem (once) | One notification |
 | Same problems persist on next check | Nothing | No |
-| Device recovers | Full report (once) | No |
-| Manual "Run Check Now" | Full report (always) | Only if new problems |
+| Device recovers | Single line per recovery (once) | No |
+| Manual "Run Check Now" | Full box-drawing report (always) | Only if new problems |
 
 This means you can safely run checks hourly or daily without filling your log or getting repeated Pushover messages about the same issue.
 
