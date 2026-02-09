@@ -4,37 +4,52 @@ A plugin for [Indigo Domotics](https://www.indigodomo.com/) that monitors the he
 
 ## The Problem
 
-The Home Assistant Agent plugin stores a Home Assistant entity ID (e.g. `climate.bedroom_trv`) in each Indigo device's address field. If that entity is deleted, renamed, or goes offline in Home Assistant, the HA Agent plugin logs a debug-level message and the Indigo device **silently stops updating** - retaining stale state values with no visible warning.
+The Home Assistant Agent plugin stores a Home Assistant entity ID (e.g. `climate.bedroom_trv`) in each Indigo device's address field. If that entity is deleted, renamed, or goes offline in Home Assistant, the HA Agent plugin logs a debug-level message and the Indigo device **silently stops updating** — retaining stale state values with no visible warning.
 
 **HA Device Monitor** fills that gap with four validation checks run on a configurable schedule.
 
 ## Features
 
-- **Entity Exists** - Detects entities deleted or renamed in Home Assistant
-- **Entity Available** - Detects entities in `unavailable` or `unknown` state
-- **Domain Match** - Detects entity domain mismatches (e.g. a climate device pointing to a sensor entity)
-- **Freshness** - Detects entities that haven't updated within a configurable threshold
-- **Zero Configuration** - Reads HA connection details directly from the HA Agent plugin (no duplicate setup)
-- **Flexible Scheduling** - Manual, hourly, daily, or weekly check cycles
-- **On-Demand Checks** - Run a check anytime from the plugin menu
-- **Smart Alerts** - Batched Pushover notifications (optional), with suppression of known problems
-- **Recovery Tracking** - Logs when previously-flagged devices become healthy again
-- **Locale-Aware** - Date/time formatting automatically adapts to your system locale
-- **Formatted Reports** - Professional box-drawing formatted output in the Indigo log
+- **Entity Exists** — Detects entities deleted or renamed in Home Assistant
+- **Entity Available** — Detects entities in `unavailable` or `unknown` state
+- **Domain Match** — Detects entity domain mismatches (e.g. a climate device pointing to a sensor entity)
+- **Freshness** — Detects entities that haven't updated within a configurable threshold
+- **Zero Configuration** — Reads HA connection details directly from the HA Agent plugin (no duplicate setup)
+- **Flexible Scheduling** — Manual, hourly, daily, or weekly check cycles
+- **On-Demand Checks** — Run a check anytime from the plugin menu
+- **Silent Operation** — Scheduled checks produce no log output unless something changes
+- **One-Off Alerts** — Problems are logged and notified once only; no repeated alerts for known issues
+- **Recovery Tracking** — Logs when previously-flagged devices become healthy again
+- **Locale-Aware** — Date/time formatting automatically adapts to your system locale (UK, US, European, Asian)
+- **Formatted Reports** — Professional box-drawing formatted output in the Indigo log
+
+## Smart Logging — No Spam
+
+The plugin is designed to stay quiet and only speak up when something changes:
+
+| Scenario | Log Output | Pushover |
+|----------|-----------|----------|
+| Scheduled check, all OK | Nothing | No |
+| New problem found | Full report (once) | One notification |
+| Same problems persist on next check | Nothing | No |
+| Device recovers | Full report (once) | No |
+| Manual "Run Check Now" | Full report (always) | Only if new problems |
+
+This means you can safely run checks hourly or daily without filling your log or getting repeated Pushover messages about the same issue.
 
 ## Requirements
 
 - **Indigo 2025.1** or later
-- **Home Assistant Agent plugin** - installed, enabled, and configured with a valid long-lived access token
-- **Pushover plugin** (optional) - only needed if you want push notifications
+- **Home Assistant Agent plugin** — installed, enabled, and configured with a valid long-lived access token
+- **Pushover plugin** (optional) — only needed if you want push notifications
 
-No additional Python dependencies required - uses only the Python standard library.
+No additional Python dependencies required — uses only the Python standard library.
 
 ## Installation
 
-1. Download `HADeviceMonitor.indigoPlugin` from the [latest release](../../releases/latest)
-2. Double-click the downloaded file - Indigo will offer to install it
-3. Enable the plugin when prompted
+1. Download `HADeviceMonitor.indigoPlugin.zip` from the [latest release](../../releases/latest)
+2. Unzip and double-click `HADeviceMonitor.indigoPlugin`
+3. Indigo will offer to install it — enable when prompted
 
 That's it! The plugin automatically reads your HA connection details from the Home Assistant Agent plugin.
 
@@ -48,7 +63,7 @@ Access via **Plugins > HA Device Monitor > Configure...**
 | Run at hour | 06:00 | Hour to run (for daily and weekly modes) |
 | Run on day | Monday | Day of week (for weekly mode) |
 | Stale threshold | 2880 min (48h) | How old `last_updated` can be before flagging (0 = disable) |
-| Pushover alerts | Disabled | Send a batched Pushover notification for new problems |
+| Pushover alerts | Disabled | Send a one-off Pushover notification when new problems are found |
 | Log level | Informational | Controls verbosity of log output |
 
 ## Plugin Menu
@@ -57,7 +72,7 @@ Access via **Plugins > HA Device Monitor**
 
 | Menu Item | Description |
 |-----------|-------------|
-| **Run Check Now** | Trigger a check immediately regardless of schedule |
+| **Run Check Now** | Trigger a check immediately — always shows the full report |
 | **Plugin Documentation...** | Opens the full documentation |
 | **Configure...** | Opens the configuration dialog |
 
@@ -65,16 +80,16 @@ Access via **Plugins > HA Device Monitor**
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
-║                                   HA DEVICE MONITOR REPORT                                   ║
-║                                    09/02/2026 14:30:00                                       ║
+║                                   HA DEVICE MONITOR REPORT                                 ║
+║                                    09/02/2026 14:30:00                                     ║
 ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
-║ [!!] PROBLEMS: 94/112 OK, 18 issue(s)                                                       ║
-║ Stale threshold: 2880m (48h)                                                                 ║
+║ [!!] PROBLEMS: 94/112 OK, 18 issue(s)                                                     ║
+║ Stale threshold: 2880m (48h)                                                               ║
 ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
-║ [X] MISSING ENTITIES (8)                                                                     ║
+║ [X] MISSING ENTITIES (8)                                                                   ║
 ╟──────────────────────────────────────────────────────────────────────────────────────────────╢
-║ Bathroom Basin Spacial Learning    button.z_bathroom_basin_motion_sensor_identify             ║
-║ HA BlueIris Plug                   switch.blueiris_power_switch_outlet                       ║
+║ Bathroom Basin Spacial Learning      button.z_bathroom_basin_motion_sensor_identify         ║
+║ HA BlueIris Plug                     switch.blueiris_power_switch_outlet                   ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -91,7 +106,7 @@ Access via **Plugins > HA Device Monitor**
 | ha_lock | lock |
 | ha_fan | fan |
 | ha_media_player | media_player |
-| ha_generic | *(any - domain check skipped)* |
+| ha_generic | *(any — domain check skipped)* |
 
 ## Troubleshooting
 
@@ -109,9 +124,9 @@ Access via **Plugins > HA Device Monitor**
 2. Waits for the configured schedule (or a manual trigger)
 3. Calls the HA REST API `/api/states` endpoint
 4. Validates every enabled HA Agent device against the four checks
-5. Logs a formatted report with categorised results
-6. Sends a single batched Pushover notification for any **new** problems (if enabled)
-7. Tracks recoveries when previously-flagged devices become healthy
+5. **New problems:** logs a formatted report once and sends one Pushover notification (if enabled)
+6. **Known problems:** stays silent on subsequent checks
+7. **Recoveries:** logs once when previously-flagged devices become healthy
 
 ## Contributing
 
@@ -119,7 +134,7 @@ Issues and pull requests are welcome! Please open an issue first to discuss any 
 
 ## Licence
 
-This project is licensed under the MIT Licence - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT Licence — see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 

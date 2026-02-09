@@ -1,7 +1,7 @@
 # HA Device Monitor Plugin
 
-**Version:** 1.1.0
-**Author:** CliveS and Claude Opus 4
+**Version:** 1.2.0
+**Author:** CliveS
 **Requires:** Indigo 2025.1+, Home Assistant Agent plugin
 
 ## What It Does
@@ -23,6 +23,18 @@ Each check cycle queries the Home Assistant REST API and validates every HA Agen
 | **Domain Match** | Entity domain doesn't match the Indigo device type (e.g. a climate device pointing to a sensor entity) |
 | **Freshness** | Entity's `last_updated` timestamp exceeds the configured threshold (integration may be frozen) |
 
+## Smart Logging — No Spam
+
+The plugin is designed to stay quiet and only speak up when something changes:
+
+- **Scheduled checks** produce **no log output** when all devices are healthy
+- When a **new problem** is found, the full report is logged **once** and one Pushover notification is sent (if enabled)
+- If the **same problems persist** on the next check, nothing is logged or notified again
+- When a device **recovers**, the report is logged once to confirm
+- **Manual checks** (Run Check Now) always show the full report regardless
+
+This means you can safely run checks hourly or daily without filling your log or getting repeated Pushover messages about the same issue.
+
 ## Schedule Options
 
 The plugin supports four scheduling modes, configured via **Plugins > HA Device Monitor > Configure...**
@@ -43,10 +55,10 @@ You can always run **Run Check Now** from the plugin menu regardless of the sche
 3. Calls the HA REST API `/api/states` endpoint to get all entities
 4. Iterates all enabled HA Agent devices in Indigo
 5. Runs the four validation checks on each device
-6. New problems are logged as WARNINGs and optionally sent as a single batched Pushover notification
-7. Known problems are suppressed (no repeated alerts on subsequent checks)
-8. Recoveries are logged when a previously-flagged device becomes healthy
-9. A summary line is logged each cycle (e.g. `HA Device Monitor: 24/26 devices OK, 2 problem(s)`)
+6. **New problems only:** logged once as a WARNING with a formatted report, and optionally one Pushover notification
+7. **Known problems:** suppressed on subsequent checks (no repeated alerts)
+8. **Recoveries:** logged once when a previously-flagged device becomes healthy
+9. **All OK:** nothing logged during scheduled checks (silent operation)
 
 ## Configuration
 
@@ -58,7 +70,7 @@ Access via **Plugins > HA Device Monitor > Configure...**
 | Run at hour | 06:00 | Hour to run (shown for daily and weekly modes) |
 | Run on day | Monday | Day of week to run (shown for weekly mode only) |
 | Stale threshold | 2880 minutes (48h) | How old `last_updated` can be before flagging (0 = disable) |
-| Pushover alerts | Disabled | Send a single batched Pushover notification for new problems each cycle |
+| Pushover alerts | Disabled | Send a single Pushover notification when new problems are found (one-off, not repeated) |
 | Log level | Informational | Controls verbosity of log output |
 
 ## Plugin Menu
@@ -67,9 +79,20 @@ Access via **Plugins > HA Device Monitor**
 
 | Menu Item | Description |
 |-----------|-------------|
-| **Run Check Now** | Immediately triggers a validation check regardless of schedule |
+| **Run Check Now** | Immediately triggers a validation check — always shows the full report |
 | **Plugin Documentation...** | Opens this README file |
 | **Configure...** | Opens the plugin configuration dialog |
+
+## Locale-Aware Date Formatting
+
+The plugin automatically detects your system locale and formats dates accordingly:
+
+| Locale | Format |
+|--------|--------|
+| UK, Europe, Australia | dd/mm/yyyy HH:MM:SS |
+| US | mm/dd/yyyy HH:MM:SS |
+| Japan, China, Korea | yyyy-mm-dd HH:MM:SS |
+| Other/Unknown | yyyy-mm-dd HH:MM:SS (ISO 8601) |
 
 ## Device Type Mapping
 
@@ -92,41 +115,7 @@ The plugin knows which HA domain each HA Agent device type expects:
 
 - **Home Assistant Agent plugin** must be installed, enabled, and configured with a valid long-lived access token
 - **Pushover plugin** (optional) — needed only if Pushover alerts are enabled
-- **No additional Python dependencies** — uses only stdlib (`urllib`, `json`, `ssl`)
-
-## Log Messages
-
-**Schedule info (on startup and config change):**
-```
-Schedule: Manual only - use Plugins > HA Device Monitor > Run Check Now
-Schedule: Daily at 06:00
-Schedule: Weekly on Monday at 06:00
-```
-
-**Manual trigger:**
-```
-Check requested from menu
-Running manual check...
-```
-
-**Problems (WARNING level):**
-```
-PROBLEM: 'Bedroom TRV' references 'climate.bedroom_trv' which does not exist in HA
-PROBLEM: 'Kitchen Sensor' entity 'sensor.kitchen_temp' is 'unavailable' in HA
-PROBLEM: 'Lounge Light' entity 'sensor.lounge' has domain 'sensor' but expected 'light'
-PROBLEM: 'Garden Sensor' entity 'sensor.garden_temp' last updated 3000 minutes ago (threshold: 2880m)
-```
-
-**Recoveries (INFO level):**
-```
-RECOVERED: climate.bedroom_trv (missing) - previously reported: ...
-```
-
-**Summary (each cycle):**
-```
-HA Device Monitor: 24/26 devices OK, 2 problem(s)
-HA Device Monitor: 26/26 devices OK
-```
+- **No additional Python dependencies** — uses only stdlib (`urllib`, `json`, `ssl`, `locale`)
 
 ## Troubleshooting
 
@@ -137,18 +126,25 @@ HA Device Monitor: 26/26 devices OK
 | "HA API connection error" | Can't reach Home Assistant | Check HA is running and accessible from this machine |
 | "HA API HTTP error 401" | Token is invalid or expired | Generate a new long-lived access token in HA |
 | Many stale alerts | Threshold too low for infrequently-updating entities | Increase the stale threshold or set to 0 to disable |
-| No Configure... menu item | PluginConfig.xml in wrong location | Must be in `Contents/Server Plugin/` not `Contents/` |
 
 ## Notes
 
 - The plugin waits 30 seconds after startup before responding to schedule checks, giving the HA Agent time to establish its WebSocket connection
 - Disabled Indigo devices are skipped
 - The `ha_generic` device type skips the domain check since generic devices can map to any HA domain
-- Alert suppression is reset when the plugin restarts
+- Problem tracking is reset when the plugin restarts (all problems will be treated as new on the first check after restart)
 - Changing the schedule in config resets the schedule tracker, so the next eligible time slot will fire
 - The thread checks every 30 seconds whether a scheduled run is due (very lightweight — no API calls until a check actually runs)
 
 ## Changelog
+
+### v1.2.0
+- Smart silent operation: scheduled checks produce no log output when all is well
+- Problems logged and notified once only — no repeated alerts for known issues
+- Recoveries logged once when devices return to healthy state
+- Wider report format (88 characters) to show full entity IDs
+- Locale-aware date/time formatting (UK, US, European, Asian formats)
+- Replaced emoji markers with fixed-width ASCII for consistent report alignment
 
 ### v1.1.0
 - Replaced fixed-interval polling with flexible scheduling: manual, hourly, daily, weekly

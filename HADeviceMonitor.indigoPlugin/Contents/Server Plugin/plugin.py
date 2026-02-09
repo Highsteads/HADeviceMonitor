@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.1.0
+# Version: 1.2.0
 ####################
 
 import indigo
@@ -151,19 +151,19 @@ class Plugin(indigo.PluginBase):
             self.sleep(30)
 
             while True:
-                # Check for manual trigger
+                # Check for manual trigger (always show full report)
                 if self.run_check_requested:
                     self.run_check_requested = False
                     self.logger.info("Running manual check...")
                     try:
-                        self._run_check_cycle()
+                        self._run_check_cycle(manual=True)
                     except Exception:
                         self.logger.exception("Error during manual check cycle")
 
-                # Check if scheduled run is due
+                # Check if scheduled run is due (respects silent mode)
                 elif self._is_check_due():
                     try:
-                        self._run_check_cycle()
+                        self._run_check_cycle(manual=False)
                     except Exception:
                         self.logger.exception("Error during scheduled check cycle")
 
@@ -384,7 +384,7 @@ class Plugin(indigo.PluginBase):
     # Main Check Cycle
     # -------------------------------------------------------------------------
 
-    def _run_check_cycle(self):
+    def _run_check_cycle(self, manual=False):
         entities = self._fetch_ha_entities()
         if entities is None:
             self.logger.warning("Skipping check cycle - could not fetch HA entities")
@@ -486,15 +486,35 @@ class Plugin(indigo.PluginBase):
             info = self.known_problems.pop(entity_id)
             recovered_devices.append({"entity": entity_id, "type": info["type"]})
 
-        # Output formatted report
-        self._log_report(
-            total, problems,
-            missing_devices, unavailable_devices,
-            domain_mismatch_devices, stale_devices,
-            recovered_devices, stale_threshold
-        )
+        # Determine whether to show output
+        # Manual: always show full report
+        # Scheduled/silent: only show if there are NEW problems or recoveries
+        has_news = len(new_problems) > 0 or len(recovered_devices) > 0
 
-        # Send a single batched Pushover for any NEW problems this cycle
+        if manual:
+            # Manual check: always show the full report
+            self._log_report(
+                total, problems,
+                missing_devices, unavailable_devices,
+                domain_mismatch_devices, stale_devices,
+                recovered_devices, stale_threshold
+            )
+        elif has_news:
+            # Scheduled check with new findings: show report
+            self._log_report(
+                total, problems,
+                missing_devices, unavailable_devices,
+                domain_mismatch_devices, stale_devices,
+                recovered_devices, stale_threshold
+            )
+        else:
+            # Scheduled check, nothing new: stay silent
+            self.logger.debug(
+                f"Silent check complete: {total - problems}/{total} OK, "
+                f"{problems} known issue(s), nothing new"
+            )
+
+        # Send ONE Pushover only for NEW problems (not repeated on subsequent checks)
         if new_problems and self.pluginPrefs.get("enablePushover", False):
             summary = f"{len(new_problems)} new problem(s):\n" + "\n".join(f"- {p}" for p in new_problems)
             self._send_pushover("HA Device Monitor", summary)
