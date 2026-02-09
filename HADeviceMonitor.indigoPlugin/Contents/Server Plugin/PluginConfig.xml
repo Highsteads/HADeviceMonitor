@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<PluginConfig>
+	<Field id="separator1" type="separator"/>
+
+	<Field id="haAgentInfo" type="label">
+		<Label>This plugin reads connection settings from the Home Assistant Agent plugin automatically. No HA configuration is needed here.</Label>
+	</Field>
+
+	<Field id="separator2" type="separator"/>
+
+	<Field id="scheduleMode" type="menu" defaultValue="manual">
+		<Label>Check schedule:</Label>
+		<List>
+			<Option value="manual">Manual only (use menu: Run Check Now)</Option>
+			<Option value="hourly">Every hour</Option>
+			<Option value="daily">Daily at a set time</Option>
+			<Option value="weekly">Weekly on a set day and time</Option>
+		</List>
+	</Field>
+
+	<Field id="scheduleHour" type="menu" defaultValue="06"
+		   visibleBindingId="scheduleMode" visibleBindingValue="daily,weekly">
+		<Label>Run at hour:</Label>
+		<List>
+			<Option value="00">00:00 (midnight)</Option>
+			<Option value="01">01:00</Option>
+			<Option value="02">02:00</Option>
+			<Option value="03">03:00</Option>
+			<Option value="04">04:00</Option>
+			<Option value="05">05:00</Option>
+			<Option value="06">06:00</Option>
+			<Option value="07">07:00</Option>
+			<Option value="08">08:00</Option>
+			<Option value="09">09:00</Option>
+			<Option value="10">10:00</Option>
+			<Option value="11">11:00</Option>
+			<Option value="12">12:00 (noon)</Option>
+			<Option value="13">13:00</Option>
+			<Option value="14">14:00</Option>
+			<Option value="15">15:00</Option>
+			<Option value="16">16:00</Option>
+			<Option value="17">17:00</Option>
+			<Option value="18">18:00</Option>
+			<Option value="19">19:00</Option>
+			<Option value="20">20:00</Option>
+			<Option value="21">21:00</Option>
+			<Option value="22">22:00</Option>
+			<Option value="23">23:00</Option>
+		</List>
+	</Field>
+
+	<Field id="scheduleDay" type="menu" defaultValue="0"
+		   visibleBindingId="scheduleMode" visibleBindingValue="weekly">
+		<Label>Run on day:</Label>
+		<List>
+			<Option value="0">Monday</Option>
+			<Option value="1">Tuesday</Option>
+			<Option value="2">Wednesday</Option>
+			<Option value="3">Thursday</Option>
+			<Option value="4">Friday</Option>
+			<Option value="5">Saturday</Option>
+			<Option value="6">Sunday</Option>
+		</List>
+	</Field>
+
+	<Field id="separator3" type="separator"/>
+
+	<Field id="staleThreshold" type="textfield" defaultValue="2880">
+		<Label>Stale threshold (minutes):</Label>
+		<Description>Flag entities not updated within this period. Default 2880 = 48 hours. (0 = disable)</Description>
+	</Field>
+
+	<Field id="separator4" type="separator"/>
+
+	<Field id="enablePushover" type="checkbox" defaultValue="false">
+		<Label>Send summary alert via Pushover:</Label>
+		<Description>Sends a single batched notification per cycle (not per problem). Requires Pushover plugin.</Description>
+	</Field>
+
+	<Field id="separator5" type="separator"/>
+
+	<Field id="logLevel" type="menu" defaultValue="20">
+		<Label>Event logging level:</Label>
+		<List>
+			<Option value="10">Debugging Messages</Option>
+			<Option value="20">Informational Messages</Option>
+			<Option value="30">Warning Messages Only</Option>
+			<Option value="40">Error Messages Only</Option>
+		</List>
+	</Field>
+</PluginConfig>

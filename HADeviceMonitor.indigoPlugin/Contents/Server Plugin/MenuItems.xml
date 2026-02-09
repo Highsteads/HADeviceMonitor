@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<MenuItems>
+	<MenuItem id="runCheckNow">
+		<Name>Run Check Now</Name>
+		<CallbackMethod>run_check_now</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="showReadme">
+		<Name>Plugin Documentation...</Name>
+		<CallbackMethod>show_readme</CallbackMethod>
+	</MenuItem>
+</MenuItems>
