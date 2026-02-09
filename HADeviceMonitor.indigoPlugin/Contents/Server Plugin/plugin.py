@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.2.0
+# Version: 1.2.1
 ####################
 
 import indigo
@@ -179,10 +179,14 @@ class Plugin(indigo.PluginBase):
 
     def _is_check_due(self):
         """Determine if a scheduled check should run now."""
-        mode = self.pluginPrefs.get("scheduleMode", "manual")
+        mode = self.pluginPrefs.get("scheduleMode", "continuous")
 
         if mode == "manual":
             return False
+
+        # Continuous mode: run every loop cycle (every 30 seconds)
+        if mode == "continuous":
+            return True
 
         now = datetime.now()
         current_hour = now.hour
@@ -216,9 +220,11 @@ class Plugin(indigo.PluginBase):
 
     def _log_schedule_info(self):
         """Log the current schedule configuration."""
-        mode = self.pluginPrefs.get("scheduleMode", "manual")
+        mode = self.pluginPrefs.get("scheduleMode", "continuous")
 
-        if mode == "manual":
+        if mode == "continuous":
+            self.logger.info("Schedule: Continuous (every 30 seconds, silent unless problems found)")
+        elif mode == "manual":
             self.logger.info("Schedule: Manual only - use Plugins > HA Device Monitor > Run Check Now")
         elif mode == "hourly":
             self.logger.info("Schedule: Every hour (on the hour)")

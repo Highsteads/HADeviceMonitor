@@ -17,6 +17,7 @@ The Home Assistant Agent plugin stores a Home Assistant entity ID (e.g. `climate
 - **Zero Configuration** — Reads HA connection details directly from the HA Agent plugin (no duplicate setup)
 - **Flexible Scheduling** — Manual, hourly, daily, or weekly check cycles
 - **On-Demand Checks** — Run a check anytime from the plugin menu
+- **Continuous Monitoring** — Default mode checks every 30 seconds, completely silent unless problems found
 - **Silent Operation** — Scheduled checks produce no log output unless something changes
 - **One-Off Alerts** — Problems are logged and notified once only; no repeated alerts for known issues
 - **Recovery Tracking** — Logs when previously-flagged devices become healthy again
@@ -59,7 +60,7 @@ Access via **Plugins > HA Device Monitor > Configure...**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Check schedule | Manual only | When to run checks: manual, hourly, daily, or weekly |
+| Check schedule | Continuous | When to run checks: continuous (every 30s), manual, hourly, daily, or weekly |
 | Run at hour | 06:00 | Hour to run (for daily and weekly modes) |
 | Run on day | Monday | Day of week (for weekly mode) |
 | Stale threshold | 2880 min (48h) | How old `last_updated` can be before flagging (0 = disable) |

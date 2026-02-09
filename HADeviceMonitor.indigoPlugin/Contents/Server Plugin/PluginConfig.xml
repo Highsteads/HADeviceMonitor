@@ -8,9 +8,10 @@
 
 	<Field id="separator2" type="separator"/>
 
-	<Field id="scheduleMode" type="menu" defaultValue="manual">
+	<Field id="scheduleMode" type="menu" defaultValue="continuous">
 		<Label>Check schedule:</Label>
 		<List>
+			<Option value="continuous">Continuous (every 30 seconds, silent unless problems found)</Option>
 			<Option value="manual">Manual only (use menu: Run Check Now)</Option>
 			<Option value="hourly">Every hour</Option>
 			<Option value="daily">Daily at a set time</Option>

@@ -1,16 +1,18 @@
 # HA Device Monitor Plugin
 
-**Version:** 1.2.0
+**Version:** 1.2.1
 **Author:** CliveS
 **Requires:** Indigo 2025.1+, Home Assistant Agent plugin
 
 ## What It Does
 
-This plugin monitors all Indigo devices created by the Home Assistant Agent plugin, validating that each device's associated HA entity is healthy. It catches problems that the HA Agent plugin itself silently ignores.
+This plugin monitors all Indigo devices created by the Home Assistant Agent plugin, validating that each device's associated HA entity is healthy. 
+It catches problems that the HA Agent plugin itself silently ignores.
 
 ## Why You Need It
 
-The HA Agent plugin stores a Home Assistant entity_id (e.g. `climate.bedroom_trv`) in each Indigo device's address field. If that entity is deleted, renamed, or goes offline in Home Assistant, the HA Agent plugin logs a debug-level message and the Indigo device silently stops updating — retaining stale state values with no visible warning. This plugin fills that gap.
+The HA Agent plugin stores a Home Assistant entity_id (e.g. `climate.bedroom_trv`) in each Indigo device's address field. 
+If that entity is deleted, renamed, or goes offline in Home Assistant, the HA Agent plugin logs a debug-level message and the Indigo device silently stops updating — retaining stale state values with no visible warning. This plugin fills that gap.
 
 ## Four Validation Checks
 
@@ -37,11 +39,12 @@ This means you can safely run checks hourly or daily without filling your log or
 
 ## Schedule Options
 
-The plugin supports four scheduling modes, configured via **Plugins > HA Device Monitor > Configure...**
+The plugin supports five scheduling modes, configured via **Plugins > HA Device Monitor > Configure...**
 
 | Mode | Description |
 |------|-------------|
-| **Manual only** (default) | No automatic checks. Use **Plugins > HA Device Monitor > Run Check Now** to trigger a check on demand |
+| **Continuous** (default) | Checks every 30 seconds in the background, completely silent unless a new problem is found |
+| **Manual only** | No automatic checks. Use **Plugins > HA Device Monitor > Run Check Now** to trigger a check on demand |
 | **Every hour** | Runs automatically once per hour, on the hour |
 | **Daily** | Runs once per day at a configurable hour (e.g. 06:00) |
 | **Weekly** | Runs once per week on a configurable day and hour (e.g. Monday at 06:00) |
@@ -66,7 +69,7 @@ Access via **Plugins > HA Device Monitor > Configure...**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Check schedule | Manual only | When to run checks: manual, hourly, daily, or weekly |
+| Check schedule | Continuous | When to run checks: continuous, manual, hourly, daily, or weekly |
 | Run at hour | 06:00 | Hour to run (shown for daily and weekly modes) |
 | Run on day | Monday | Day of week to run (shown for weekly mode only) |
 | Stale threshold | 2880 minutes (48h) | How old `last_updated` can be before flagging (0 = disable) |
@@ -137,6 +140,10 @@ The plugin knows which HA domain each HA Agent device type expects:
 - The thread checks every 30 seconds whether a scheduled run is due (very lightweight — no API calls until a check actually runs)
 
 ## Changelog
+
+### v1.2.1
+- Added continuous mode (default): checks every 30 seconds, completely silent unless problems found
+- Near-instant detection of broken entity links
 
 ### v1.2.0
 - Smart silent operation: scheduled checks produce no log output when all is well
