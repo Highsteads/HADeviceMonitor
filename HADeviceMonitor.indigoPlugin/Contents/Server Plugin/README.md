@@ -1,6 +1,6 @@
 # HA Device Monitor Plugin
 
-**Version:** 1.2.1
+**Version:** 1.2.2
 **Author:** CliveS
 **Requires:** Indigo 2025.1+, Home Assistant Agent plugin
 
@@ -140,6 +140,11 @@ The plugin knows which HA domain each HA Agent device type expects:
 - The thread checks every 30 seconds whether a scheduled run is due (very lightweight — no API calls until a check actually runs)
 
 ## Changelog
+
+### v1.2.2
+- Added GithubInfo metadata to Info.plist for Indigo Plugin Store update checking
+- Scheduled/continuous checks now log only individual NEW PROBLEM / RECOVERED lines (not full report)
+- Full box-drawing report reserved for manual "Run Check Now" only
 
 ### v1.2.1
 - Added continuous mode (default): checks every 30 seconds, completely silent unless problems found

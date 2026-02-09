@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.2.1
+# Version: 1.2.2
 ####################
 
 import indigo
@@ -492,9 +492,7 @@ class Plugin(indigo.PluginBase):
             info = self.known_problems.pop(entity_id)
             recovered_devices.append({"entity": entity_id, "type": info["type"]})
 
-        # Determine whether to show output
-        # Manual: always show full report
-        # Scheduled/silent: only show if there are NEW problems or recoveries
+        # Determine output
         has_news = len(new_problems) > 0 or len(recovered_devices) > 0
 
         if manual:
@@ -506,15 +504,13 @@ class Plugin(indigo.PluginBase):
                 recovered_devices, stale_threshold
             )
         elif has_news:
-            # Scheduled check with new findings: show report
-            self._log_report(
-                total, problems,
-                missing_devices, unavailable_devices,
-                domain_mismatch_devices, stale_devices,
-                recovered_devices, stale_threshold
-            )
+            # Scheduled/continuous: only log the specific changes, not the full report
+            for p in new_problems:
+                self.logger.warning(f"NEW PROBLEM: {p}")
+            for item in recovered_devices:
+                self.logger.info(f"RECOVERED: {item['entity']} (was: {item['type']})")
         else:
-            # Scheduled check, nothing new: stay silent
+            # Nothing new: stay silent
             self.logger.debug(
                 f"Silent check complete: {total - problems}/{total} OK, "
                 f"{problems} known issue(s), nothing new"
