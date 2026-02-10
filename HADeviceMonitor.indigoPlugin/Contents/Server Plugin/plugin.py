@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.3.0
+# Version: 1.3.1
 ####################
 
 import indigo
@@ -11,8 +11,10 @@ import locale
 import logging
 import json
 import os
+import platform
 import ssl
 import subprocess
+import sys
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -354,6 +356,46 @@ class Plugin(indigo.PluginBase):
         """Triggered from Plugins > HA Device Monitor > Run Check Now."""
         self.logger.info("Check requested from menu")
         self.run_check_requested = True
+
+    def toggle_debug(self):
+        """Toggle log level between INFO and DEBUG from the plugin menu."""
+        if self.logLevel == logging.INFO:
+            self.logLevel = logging.DEBUG
+            self.indigo_log_handler.setLevel(self.logLevel)
+            self.plugin_file_handler.setLevel(self.logLevel)
+            self.logger.info("Debug logging ENABLED")
+        else:
+            self.logLevel = logging.INFO
+            self.indigo_log_handler.setLevel(self.logLevel)
+            self.plugin_file_handler.setLevel(self.logLevel)
+            self.logger.info("Debug logging DISABLED")
+        self.pluginPrefs["logLevel"] = str(self.logLevel)
+
+    def restart_plugin(self):
+        """Restart the plugin from the plugin menu."""
+        self.logger.info("Restarting plugin...")
+        plugin = indigo.server.getPlugin(self.pluginId)
+        plugin.restart()
+
+    def display_plugin_information(self):
+        """Log plugin and system information to the Indigo event log."""
+        info = (
+            f"\n{'=' * 60}\n"
+            f"{'Plugin Name:':<25} {self.pluginDisplayName}\n"
+            f"{'Plugin Version:':<25} {self.pluginVersion}\n"
+            f"{'Plugin ID:':<25} {self.pluginId}\n"
+            f"{'Indigo Version:':<25} {indigo.server.version}\n"
+            f"{'Indigo API Version:':<25} {indigo.server.apiVersion}\n"
+            f"{'Python Version:':<25} {sys.version.split(' ')[0]}\n"
+            f"{'macOS Version:':<25} {platform.mac_ver()[0]}\n"
+            f"{'Architecture:':<25} {platform.machine()}\n"
+            f"{'Process ID:':<25} {os.getpid()}\n"
+            f"{'HA Connection:':<25} {self.ha_base_url or 'not configured'}\n"
+            f"{'Schedule Mode:':<25} {self.pluginPrefs.get('scheduleMode', 'continuous')}\n"
+            f"{'Known Problems:':<25} {len(self.known_problems)}\n"
+            f"{'=' * 60}"
+        )
+        self.logger.info(info)
 
     def show_readme(self):
         readme_path = os.path.join(

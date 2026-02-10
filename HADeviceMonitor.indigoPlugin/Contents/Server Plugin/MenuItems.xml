@@ -4,6 +4,18 @@
 		<Name>Run Check Now</Name>
 		<CallbackMethod>run_check_now</CallbackMethod>
 	</MenuItem>
+	<MenuItem id="toggleDebug">
+		<Name>Toggle Debugging</Name>
+		<CallbackMethod>toggle_debug</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="restartPlugin">
+		<Name>Restart Plugin</Name>
+		<CallbackMethod>restart_plugin</CallbackMethod>
+	</MenuItem>
+	<MenuItem id="pluginInformation">
+		<Name>Display Plugin Information</Name>
+		<CallbackMethod>display_plugin_information</CallbackMethod>
+	</MenuItem>
 	<MenuItem id="showReadme">
 		<Name>Plugin Documentation...</Name>
 		<CallbackMethod>show_readme</CallbackMethod>
