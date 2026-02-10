@@ -74,12 +74,34 @@
 	<Field id="separator4" type="separator"/>
 
 	<Field id="excludeLabel" type="label">
-		<Label>Exclude List</Label>
+		<Label>Exclude List — devices to skip during checks</Label>
 	</Field>
 
-	<Field id="excludeEntities" type="textfield" defaultValue="">
-		<Label>Exclude entity IDs:</Label>
-		<Description>Entity IDs to skip during checks (comma-separated). e.g. button.kitchen_identify, sensor.old_device</Description>
+	<Field id="excludeDeviceMenu" type="menu" dynamicReload="true">
+		<Label>Add device:</Label>
+		<List class="self" method="available_ha_devices" dynamicReload="true"/>
+	</Field>
+
+	<Field id="addExclude" type="button">
+		<Label/>
+		<Title>Add to Exclude List</Title>
+		<CallbackMethod>add_exclude</CallbackMethod>
+	</Field>
+
+	<Field id="excludeDeviceList" type="list" rows="6">
+		<Label>Excluded devices:</Label>
+		<List class="self" method="excluded_ha_devices" dynamicReload="true"/>
+	</Field>
+
+	<Field id="removeExclude" type="button">
+		<Label/>
+		<Title>Remove Selected</Title>
+		<CallbackMethod>remove_exclude</CallbackMethod>
+	</Field>
+
+	<!-- Hidden field stores comma-delimited entity IDs -->
+	<Field id="excludeEntities" type="textfield" hidden="true" defaultValue="">
+		<Label/>
 	</Field>
 
 	<Field id="separator5" type="separator"/>

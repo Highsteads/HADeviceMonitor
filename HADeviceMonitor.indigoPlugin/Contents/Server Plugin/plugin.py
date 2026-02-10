@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.3.1
+# Version: 1.3.2
 ####################
 
 import indigo
@@ -404,6 +404,93 @@ class Plugin(indigo.PluginBase):
             "Contents", "Server Plugin", "README.md"
         )
         subprocess.Popen(["/usr/bin/open", readme_path])
+
+    # -------------------------------------------------------------------------
+    # Exclude List UI (dynamic config dialog callbacks)
+    # -------------------------------------------------------------------------
+
+    def available_ha_devices(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Return HA Agent devices NOT already in the exclude list, for the dropdown."""
+        excluded = set()
+        if valuesDict:
+            raw = valuesDict.get("excludeEntities", "")
+            if raw:
+                excluded = {e.strip() for e in raw.split(",") if e.strip()}
+
+        device_list = [("", "\u2014 Select a device \u2014")]
+        for dev in indigo.devices:
+            if dev.pluginId != HA_AGENT_PLUGIN_ID:
+                continue
+            if not dev.enabled:
+                continue
+            entity_id = dev.address
+            if not entity_id or entity_id in excluded:
+                continue
+            device_list.append((entity_id, f"{dev.name}  \u2014  {entity_id}"))
+
+        return sorted(device_list, key=lambda x: x[1].lower())
+
+    def excluded_ha_devices(self, filter="", valuesDict=None, typeId="", targetId=0):
+        """Return devices currently in the exclude list, for the list display."""
+        if not valuesDict:
+            return []
+
+        raw = valuesDict.get("excludeEntities", "")
+        if not raw:
+            return []
+
+        # Build a lookup of entity_id -> device name
+        entity_to_name = {}
+        for dev in indigo.devices:
+            if dev.pluginId == HA_AGENT_PLUGIN_ID and dev.address:
+                entity_to_name[dev.address] = dev.name
+
+        result = []
+        for entity_id in raw.split(","):
+            entity_id = entity_id.strip()
+            if not entity_id:
+                continue
+            name = entity_to_name.get(entity_id, "(unknown device)")
+            result.append((entity_id, f"{name}  \u2014  {entity_id}"))
+
+        return sorted(result, key=lambda x: x[1].lower())
+
+    def add_exclude(self, valuesDict, typeId, devId):
+        """Add the selected device to the exclude list."""
+        entity_id = valuesDict.get("excludeDeviceMenu", "")
+        if not entity_id:
+            return valuesDict
+
+        raw = valuesDict.get("excludeEntities", "")
+        existing = {e.strip() for e in raw.split(",") if e.strip()} if raw else set()
+
+        if entity_id not in existing:
+            existing.add(entity_id)
+            valuesDict["excludeEntities"] = ",".join(sorted(existing))
+            self.logger.debug(f"Added to exclude list: {entity_id}")
+
+        return valuesDict
+
+    def remove_exclude(self, valuesDict, typeId, devId):
+        """Remove the selected device(s) from the exclude list."""
+        selected = valuesDict.get("excludeDeviceList", [])
+        if not selected:
+            return valuesDict
+
+        # selected may be a string (single) or list (multiple)
+        if isinstance(selected, str):
+            selected = [selected]
+
+        raw = valuesDict.get("excludeEntities", "")
+        existing = [e.strip() for e in raw.split(",") if e.strip()] if raw else []
+
+        for entity_id in selected:
+            if entity_id in existing:
+                existing.remove(entity_id)
+                self.logger.debug(f"Removed from exclude list: {entity_id}")
+
+        valuesDict["excludeEntities"] = ",".join(sorted(existing))
+        return valuesDict
 
     # -------------------------------------------------------------------------
     # Config UI
