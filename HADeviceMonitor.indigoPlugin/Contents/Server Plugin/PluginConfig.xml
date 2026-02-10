@@ -73,12 +73,38 @@
 
 	<Field id="separator4" type="separator"/>
 
-	<Field id="enablePushover" type="checkbox" defaultValue="false">
-		<Label>Send summary alert via Pushover:</Label>
-		<Description>Sends a single batched notification per cycle (not per problem). Requires Pushover plugin.</Description>
+	<Field id="excludeLabel" type="label">
+		<Label>Exclude List</Label>
+	</Field>
+
+	<Field id="excludeEntities" type="textfield" defaultValue="">
+		<Label>Exclude entity IDs:</Label>
+		<Description>Entity IDs to skip during checks (comma-separated). e.g. button.kitchen_identify, sensor.old_device</Description>
 	</Field>
 
 	<Field id="separator5" type="separator"/>
+
+	<Field id="notificationsLabel" type="label">
+		<Label>Notifications</Label>
+	</Field>
+
+	<Field id="enablePushover" type="checkbox" defaultValue="false">
+		<Label>Send alerts via Pushover:</Label>
+		<Description>Sends a single notification when new problems are found. Requires Pushover plugin.</Description>
+	</Field>
+
+	<Field id="enableEmail" type="checkbox" defaultValue="false">
+		<Label>Send alerts via Email+:</Label>
+		<Description>Sends an email when new problems are found. Requires Email+ plugin with an SMTP account.</Description>
+	</Field>
+
+	<Field id="emailTo" type="textfield" defaultValue=""
+		   visibleBindingId="enableEmail" visibleBindingValue="true">
+		<Label>Email recipient:</Label>
+		<Description>Email address to send alerts to</Description>
+	</Field>
+
+	<Field id="separator6" type="separator"/>
 
 	<Field id="logLevel" type="menu" defaultValue="20">
 		<Label>Event logging level:</Label>

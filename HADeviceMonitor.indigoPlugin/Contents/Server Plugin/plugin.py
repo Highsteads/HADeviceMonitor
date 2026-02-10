@@ -3,7 +3,7 @@
 ####################
 # HA Device Monitor - Validates Home Assistant Agent devices against HA entities
 # Author: CliveS and Claude Opus 4
-# Version: 1.2.2
+# Version: 1.3.0
 ####################
 
 import indigo
@@ -13,12 +13,16 @@ import json
 import os
 import ssl
 import subprocess
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 
 HA_AGENT_PLUGIN_ID = "no.homeassistant.plugin"
+EMAIL_PLUGIN_ID = "com.indigodomo.email"
+VARIABLE_FOLDER_NAME = "HA_Device_Monitor"
+STATE_FILE_NAME = "known_problems.json"
 
 # Maps HA Agent deviceTypeId to expected HA entity domain
 DEVICE_TYPE_TO_DOMAIN = {
@@ -53,12 +57,115 @@ class Plugin(indigo.PluginBase):
         self.plugin_file_handler.setLevel(self.logLevel)
 
         self.pluginPrefs = pluginPrefs
-        self.known_problems = {}   # entity_id -> {"type": str, "since": str, "detail": str}
+        self.known_problems = {}   # entity_id -> {"type": str, "since": str}
         self.ha_base_url = None
         self.ha_token = None
         self.run_check_requested = False
         self.last_scheduled_run = None  # Track when we last ran to avoid double-firing
+        self.last_api_response_ms = None  # Track HA API response time
         self.date_fmt = self._detect_date_format()
+        self.state_file_path = self._get_state_file_path()
+
+    # -------------------------------------------------------------------------
+    # State persistence
+    # -------------------------------------------------------------------------
+
+    def _get_state_file_path(self):
+        """Get path for the state persistence file in the plugin's preferences directory."""
+        prefs_dir = os.path.join(
+            indigo.server.getInstallFolderPath(),
+            "Preferences", "Plugins"
+        )
+        return os.path.join(prefs_dir, f"com.clives.indigoplugin.hadevicemonitor.{STATE_FILE_NAME}")
+
+    def _save_known_problems(self):
+        """Save known problems to disk for persistence across restarts."""
+        try:
+            with open(self.state_file_path, "w") as f:
+                json.dump(self.known_problems, f, indent=2)
+            self.logger.debug(f"Saved {len(self.known_problems)} known problem(s) to disk")
+        except Exception:
+            self.logger.exception("Failed to save known problems to disk")
+
+    def _load_known_problems(self):
+        """Load known problems from disk (if any exist from a previous session)."""
+        if not os.path.exists(self.state_file_path):
+            self.logger.debug("No previous state file found - starting fresh")
+            return
+
+        try:
+            with open(self.state_file_path, "r") as f:
+                self.known_problems = json.load(f)
+            count = len(self.known_problems)
+            if count > 0:
+                self.logger.info(f"Restored {count} known problem(s) from previous session (no false re-alerts)")
+            else:
+                self.logger.debug("Previous state file was empty")
+        except Exception:
+            self.logger.exception("Failed to load previous state - starting fresh")
+            self.known_problems = {}
+
+    # -------------------------------------------------------------------------
+    # Indigo variable management
+    # -------------------------------------------------------------------------
+
+    def _get_or_create_variable_folder(self):
+        """Get or create the HA_Device_Monitor variable folder."""
+        try:
+            for folder in indigo.variables.folders:
+                if folder.name == VARIABLE_FOLDER_NAME:
+                    return folder.id
+            new_folder = indigo.variables.folder.create(VARIABLE_FOLDER_NAME)
+            self.logger.info(f"Created variable folder: {VARIABLE_FOLDER_NAME}")
+            return new_folder.id
+        except Exception:
+            self.logger.exception("Failed to create variable folder")
+            return None
+
+    def _update_variable(self, name, value):
+        """Create or update an Indigo variable in the HA_Device_Monitor folder."""
+        try:
+            str_value = str(value)
+            if name in indigo.variables:
+                indigo.variable.updateValue(name, str_value)
+            else:
+                folder_id = self._get_or_create_variable_folder()
+                if folder_id is not None:
+                    indigo.variable.create(name, str_value, folder=folder_id)
+                    self.logger.info(f"Created variable: {name} = {str_value}")
+                else:
+                    indigo.variable.create(name, str_value)
+                    self.logger.info(f"Created variable: {name} = {str_value} (no folder)")
+        except Exception:
+            self.logger.exception(f"Failed to update variable {name}")
+
+    def _update_status_variables(self, total, problems):
+        """Update Indigo variables with current status."""
+        self._update_variable("ha_monitor_problem_count", problems)
+        self._update_variable("ha_monitor_device_count", total)
+        self._update_variable("ha_monitor_last_check", self._format_timestamp())
+
+    # -------------------------------------------------------------------------
+    # Exclude list
+    # -------------------------------------------------------------------------
+
+    def _get_exclude_list(self):
+        """Parse the exclude list from plugin preferences.
+
+        Returns a set of entity_id strings to skip during checks.
+        The user can enter entity IDs separated by commas, semicolons, or newlines.
+        """
+        raw = self.pluginPrefs.get("excludeEntities", "").strip()
+        if not raw:
+            return set()
+
+        excludes = set()
+        # Split on commas, semicolons, or newlines
+        for item in raw.replace(";", ",").replace("\n", ",").split(","):
+            entity_id = item.strip()
+            if entity_id:
+                excludes.add(entity_id)
+        return excludes
 
     # -------------------------------------------------------------------------
     # Locale-aware date/time formatting
@@ -140,10 +247,12 @@ class Plugin(indigo.PluginBase):
         self.logger.debug("startup called")
         self.logger.info(f"Date format: {self._format_timestamp()} (locale detected)")
         self._read_ha_agent_config()
+        self._load_known_problems()
         self._log_schedule_info()
 
     def shutdown(self):
         self.logger.debug("shutdown called")
+        self._save_known_problems()
 
     def runConcurrentThread(self):
         try:
@@ -171,7 +280,7 @@ class Plugin(indigo.PluginBase):
                 self.sleep(30)
 
         except self.StopThread:
-            pass
+            self._save_known_problems()
 
     # -------------------------------------------------------------------------
     # Schedule Logic
@@ -284,6 +393,10 @@ class Plugin(indigo.PluginBase):
             stale_display = f"{stale_mins}m ({stale_mins // 60}h)" if stale_mins > 0 else "disabled"
             self.logger.info(f"Config updated - stale threshold: {stale_display}")
 
+            exclude_count = len(self._get_exclude_list())
+            if exclude_count > 0:
+                self.logger.info(f"Exclude list: {exclude_count} entity/entities will be skipped")
+
             # Reset schedule tracking so next eligible slot fires
             self.last_scheduled_run = None
             self._log_schedule_info()
@@ -367,22 +480,27 @@ class Plugin(indigo.PluginBase):
         ctx.verify_mode = ssl.CERT_NONE
 
         try:
+            start_time = time.time()
             with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+            self.last_api_response_ms = int((time.time() - start_time) * 1000)
 
             entities = {}
             for entity in data:
                 entities[entity["entity_id"]] = entity
-            self.logger.debug(f"Fetched {len(entities)} entities from Home Assistant")
+            self.logger.debug(f"Fetched {len(entities)} entities from Home Assistant ({self.last_api_response_ms}ms)")
             return entities
 
         except urllib.error.HTTPError as e:
+            self.last_api_response_ms = None
             self.logger.error(f"HA API HTTP error {e.code}: {e.reason}")
             return None
         except urllib.error.URLError as e:
+            self.last_api_response_ms = None
             self.logger.error(f"HA API connection error: {e.reason}")
             return None
         except Exception:
+            self.last_api_response_ms = None
             self.logger.exception("Failed to fetch HA entities")
             return None
 
@@ -397,9 +515,11 @@ class Plugin(indigo.PluginBase):
             return
 
         stale_threshold = int(self.pluginPrefs.get("staleThreshold", 2880))
+        exclude_list = self._get_exclude_list()
         now = datetime.now(timezone.utc)
         total = 0
         problems = 0
+        excluded = 0
         new_problems = []
         current_problem_ids = set()
 
@@ -416,8 +536,14 @@ class Plugin(indigo.PluginBase):
             if not dev.enabled:
                 continue
 
-            total += 1
             entity_id = dev.address
+
+            # Check exclude list before counting
+            if entity_id and entity_id in exclude_list:
+                excluded += 1
+                continue
+
+            total += 1
 
             if not entity_id:
                 key = f"device:{dev.id}"
@@ -492,8 +618,13 @@ class Plugin(indigo.PluginBase):
             info = self.known_problems.pop(entity_id)
             recovered_devices.append({"entity": entity_id, "type": info["type"]})
 
-        # Determine output
+        # Update Indigo variables
+        self._update_status_variables(total, problems)
+
+        # Save state to disk whenever problems change
         has_news = len(new_problems) > 0 or len(recovered_devices) > 0
+        if has_news:
+            self._save_known_problems()
 
         if manual:
             # Manual check: always show the full report
@@ -501,7 +632,7 @@ class Plugin(indigo.PluginBase):
                 total, problems,
                 missing_devices, unavailable_devices,
                 domain_mismatch_devices, stale_devices,
-                recovered_devices, stale_threshold
+                recovered_devices, stale_threshold, excluded
             )
         elif has_news:
             # Scheduled/continuous: only log the specific changes, not the full report
@@ -516,10 +647,13 @@ class Plugin(indigo.PluginBase):
                 f"{problems} known issue(s), nothing new"
             )
 
-        # Send ONE Pushover only for NEW problems (not repeated on subsequent checks)
-        if new_problems and self.pluginPrefs.get("enablePushover", False):
+        # Send notifications only for NEW problems (not repeated on subsequent checks)
+        if new_problems:
             summary = f"{len(new_problems)} new problem(s):\n" + "\n".join(f"- {p}" for p in new_problems)
-            self._send_pushover("HA Device Monitor", summary)
+            if self.pluginPrefs.get("enablePushover", False):
+                self._send_pushover("HA Device Monitor", summary)
+            if self.pluginPrefs.get("enableEmail", False):
+                self._send_email("HA Device Monitor Alert", summary)
 
     @staticmethod
     def _format_age(minutes):
@@ -531,7 +665,7 @@ class Plugin(indigo.PluginBase):
         else:
             return f"{minutes / 1440:.1f}d"
 
-    def _log_report(self, total, problems, missing, unavailable, domain_mismatch, stale, recovered, stale_threshold):
+    def _log_report(self, total, problems, missing, unavailable, domain_mismatch, stale, recovered, stale_threshold, excluded=0):
         """Output a formatted report to the Indigo log using Unicode box-drawing characters."""
         ok_count = total - problems
         timestamp = self._format_timestamp()
@@ -575,6 +709,13 @@ class Plugin(indigo.PluginBase):
         lines.append(f"{VD}{timestamp:^{W + 2}}{VD}")
         lines.append(f"{LS}{HD * (W + 2)}{RS}")
 
+        # Connection health
+        if self.ha_base_url:
+            conn_info = f"HA: {self.ha_base_url}"
+            if self.last_api_response_ms is not None:
+                conn_info += f"  (API response: {self.last_api_response_ms}ms)"
+            lines.append(pad_row(conn_info))
+
         # Summary
         if problems == 0:
             status = f"[OK] ALL OK: {ok_count}/{total} devices healthy"
@@ -583,6 +724,8 @@ class Plugin(indigo.PluginBase):
         lines.append(pad_row(status))
         stale_display = f"{stale_threshold}m ({stale_threshold // 60}h)" if stale_threshold > 0 else "disabled"
         lines.append(pad_row(f"Stale threshold: {stale_display}"))
+        if excluded > 0:
+            lines.append(pad_row(f"Excluded: {excluded} entity/entities skipped"))
 
         if problems == 0 and not recovered:
             lines.append(pad_row(""))
@@ -660,3 +803,38 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug("Pushover plugin not available")
         except Exception:
             self.logger.exception("Failed to send Pushover notification")
+
+    def _send_email(self, subject, message):
+        """Send an email notification via the Email+ plugin."""
+        try:
+            email_plugin = indigo.server.getPlugin(EMAIL_PLUGIN_ID)
+            if not email_plugin or not email_plugin.isEnabled():
+                self.logger.debug("Email+ plugin not available")
+                return
+
+            email_to = self.pluginPrefs.get("emailTo", "").strip()
+            if not email_to:
+                self.logger.warning("Email notifications enabled but no recipient address configured")
+                return
+
+            # Find the first SMTP device in the Email+ plugin
+            smtp_device_id = None
+            for dev in indigo.devices:
+                if dev.pluginId == EMAIL_PLUGIN_ID and dev.deviceTypeId == "smtpAccount":
+                    smtp_device_id = dev.id
+                    break
+
+            if smtp_device_id is None:
+                self.logger.warning("Email notifications enabled but no SMTP account found in Email+ plugin")
+                return
+
+            email_plugin.executeAction("sendEmail", deviceId=smtp_device_id, props={
+                "emailTo": email_to,
+                "emailSubject": subject,
+                "emailMessage": message,
+                "emailFormat": "plain"
+            })
+            self.logger.debug(f"Email sent to {email_to}: {subject}")
+
+        except Exception:
+            self.logger.exception("Failed to send email notification")
