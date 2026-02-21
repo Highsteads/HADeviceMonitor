@@ -20,4 +20,8 @@
 		<Name>Plugin Documentation...</Name>
 		<CallbackMethod>show_readme</CallbackMethod>
 	</MenuItem>
+	<MenuItem id="showUiPlusPresence">
+		<Name>Show uiPlusPresence Variable</Name>
+		<CallbackMethod>show_ui_plus_presence</CallbackMethod>
+	</MenuItem>
 </MenuItems>

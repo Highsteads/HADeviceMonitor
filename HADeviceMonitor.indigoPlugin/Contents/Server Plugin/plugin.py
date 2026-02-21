@@ -405,6 +405,14 @@ class Plugin(indigo.PluginBase):
         )
         subprocess.Popen(["/usr/bin/open", readme_path])
 
+    def show_ui_plus_presence(self):
+        """Log the current value of the uiPlusPresence variable (id 512880760)."""
+        try:
+            var = indigo.variables[512880760]
+            self.logger.info(f"uiPlusPresence (id={var.id}): {var.value}")
+        except KeyError:
+            self.logger.warning("Variable uiPlusPresence (id 512880760) not found")
+
     # -------------------------------------------------------------------------
     # Exclude List UI (dynamic config dialog callbacks)
     # -------------------------------------------------------------------------
